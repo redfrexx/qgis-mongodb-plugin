@@ -8,12 +8,21 @@
  * @created 15/09/2014
  */
 """
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+
+try:
+    from PyQt5.QtCore import QSettings, QTranslator, QCoreApplication, QObject
+    from PyQt5.QtGui import QIcon
+    from PyQt5.QtWidgets import QAction, QMessageBox
+except:
+    from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, QObject, SIGNAL
+    from PyQt4.QtGui import QAction, QIcon, QMessageBox
+
+import qgis.utils
+
 # Initialize Qt resources from file resources.py
-import resources_rc, os.path
+import os.path
 # Import the code for the dialog
-from loadMongoDB_dialog import loadMongoDBDialog
+from .loadMongoDB_dialog import loadMongoDBDialog
 
 # test requirements
 try:
@@ -52,9 +61,11 @@ class loadMongoDB:
             self.translator = QTranslator()
             self.translator.load(locale_path)
 
+        try:
             if qVersion() > '4.3.3':
                 QCoreApplication.installTranslator(self.translator)
-
+        except:
+            pass
         # Create the dialog (after translation) and keep reference
         self.dlg = loadMongoDBDialog()
 
@@ -241,11 +252,30 @@ class loadMongoDB:
             callback=self.run,
             parent=self.iface.mainWindow())
 
-        QObject.connect(self.dlg.ui.load_collection, SIGNAL("clicked()"), self.on_click_check)
-        QObject.connect(self.dlg.ui.createFile, SIGNAL("clicked()"), self.button_clicked)
-        QObject.connect(self.dlg.ui.view_button, SIGNAL("clicked()"), self.dlg.view_all_attributes)
-        QObject.connect(self.dlg.ui.distinct_button, SIGNAL("clicked()"), self.dlg.view_distinct)
-        QObject.connect(self.dlg.ui.set_button, SIGNAL("clicked()"), self.dlg.set_attribute)
+        try:
+            self.dlg.ui.load_collection.clicked.connect(self.on_click_check)
+        except:
+            QObject.connect(self.dlg.ui.load_collection, SIGNAL("clicked()"), self.on_click_check)
+
+        try:
+            self.dlg.ui.createFile.clicked.connect(self.button_clicked)
+        except:
+            QObject.connect(self.dlg.ui.createFile, SIGNAL("clicked()"), self.button_clicked)
+
+        try:
+            self.dlg.ui.view_button.clicked.connect(self.dlg.view_all_attributes)
+        except:
+            QObject.connect(self.dlg.ui.view_button, SIGNAL("clicked()"), self.dlg.view_all_attributes)
+
+        try:
+            self.dlg.ui.distinct_button.clicked.connect(self.dlg.view_distinct)
+        except:
+            QObject.connect(self.dlg.ui.distinct_button, SIGNAL("clicked()"), self.dlg.view_distinct)
+
+        try:
+            self.dlg.ui.set_button.clicked.connect(self.dlg.set_attribute)
+        except:
+            QObject.connect(self.dlg.ui.set_button, SIGNAL("clicked()"), self.dlg.set_attribute)
 
         # the list will store the server details
         self.server_details_list = []

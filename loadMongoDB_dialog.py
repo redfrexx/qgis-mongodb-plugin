@@ -10,19 +10,32 @@
 """
 
 import os, sys
-from qgis.gui import QgsMessageBar
-from PyQt4.Qt import *
-from PyQt4 import QtGui, uic
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from ui_loadMongoDB_dialog_base import Ui_loadMongoDBDialogBase
-from qgis.core import *
+
+try:
+    from PyQt5.QtCore import Qt, QVariant
+    from PyQt5.QtWidgets import QMessageBox, QDialog, QTreeWidgetItem, QListWidgetItem, QApplication
+    from PyQt5 import uic
+except:
+    from PyQt4.QtCore import Qt, QVariant
+    from PyQt4.QtGui import QMessageBox, QDialog, QTreeWidgetItem, QListWidgetItem, QApplication
+    from PyQt4 import uic
+
+
+from .ui_loadMongoDB_dialog_base import Ui_loadMongoDBDialogBase
+
 import qgis.utils
-from PyQt4.QtCore import QVariant
+from qgis.gui import QgsMessageBar
+
+try:
+    from qgis.core import QgsGeometry, QgsPoint, QgsPointXY, QgsVectorLayer, QgsFeature, QgsField, QgsProject, QgsVectorFileWriter
+except:
+    from qgis.core import QgsGeometry, QgsPoint, QgsVectorLayer, QgsFeature, QgsField, QgsMapLayerRegistry, QgsVectorFileWriter
+
+#from django.utils.encoding import smart_str, smart_unicode
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'loadMongoDB_dialog_base.ui'))
+
 
 # test requirements
 try:
@@ -55,7 +68,7 @@ except ImportError as e:
                          QMessageBox.Ok)
 
 
-class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
+class loadMongoDBDialog(QDialog, FORM_CLASS):
     def __init__(self, parent=None):
 
         """Constructor."""
@@ -65,7 +78,7 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
         # self.<objectname>, and you can use autoconnect slots - see
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
-        QtGui.QDialog.__init__(self, parent, Qt.WindowMinimizeButtonHint)
+        QDialog.__init__(self, parent, Qt.WindowMinimizeButtonHint)
 
         self.ui = Ui_loadMongoDBDialogBase()
         self.ui.setupUi(self)
@@ -304,10 +317,10 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
         self.feature = QgsFeature()
 
         self.feature.initAttributes(len(self.attr_list_new))
-
+        
         for value in self.ourList:
             # print value[self.geom_name]["type"]
-
+            
             # if the user has selected a collection with point geometry
             if value[self.geom_name]["type"] == "Point":
 
@@ -316,7 +329,11 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
 
                 self.populate_attributes(value)
 
-                self.feature.setGeometry(QgsGeometry.fromPoint(QgsPoint(x_coord, y_coord)))
+                try:
+                    self.feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x_coord, y_coord)))
+                except:
+                    self.feature.setGeometry(QgsGeometry.fromPoint(QgsPoint(x_coord, y_coord)))
+
                 (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
 
                 # update the progress bar
@@ -341,7 +358,7 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
                             line_string.append(QgsPoint(value[self.geom_name]["coordinates"][y][0],
                                                         value[self.geom_name]["coordinates"][y][1]))
                         except:
-                          
+
                             qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Linestring on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
 
                     self.populate_attributes(value)
@@ -380,6 +397,9 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
                     self.populate_attributes(value)
 
                     try:
+                        ps = QgsGeometry.fromPolygonXY(poly_shape)
+                        self.feature.setGeometry(ps)
+                    except AttributeError:
                         ps = QgsGeometry.fromPolygon(poly_shape)
                         self.feature.setGeometry(ps)
                     except:
@@ -422,12 +442,15 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
 
 
                         multi_poly_shape.append(each_shape)
-                        
+
                     # final append at highest level
                     poly_shape.append(multi_poly_shape)
 
                     self.populate_attributes(value)
                     try:
+                        ps = QgsGeometry.fromMultiPolygonXY(poly_shape)
+                        self.feature.setGeometry(ps)
+                    except AttributeError:
                         ps = QgsGeometry.fromMultiPolygon(poly_shape)
                         self.feature.setGeometry(ps)
 
@@ -444,9 +467,9 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
                     self.ui.load_collection.setEnabled(False)
                     self.ui.listCol.setEnabled(False)
             else:
-              
+
                 qgis.utils.iface.messageBar().pushMessage("Error", "Failed to load geometry due to {} being unsupported".format(value[self.geom_name]["type"]), level=QgsMessageBar.CRITICAL)
-                
+                    
             self.ui.listCol.setEnabled(True)
 
         # commits the changes made to the layer and adds the layer to the map
@@ -457,7 +480,10 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
         write_error = QgsVectorFileWriter.writeAsVectorFormat(self.dataLayer, write_to, "system", self.dataLayer.crs(),
                                                               "ESRI Shapefile")
         self.dataLayer = QgsVectorLayer(write_to, self.collection_name, "ogr")
-        QgsMapLayerRegistry.instance().addMapLayer(self.dataLayer)
+        try:
+            QgsProject.instance().addMapLayer(self.dataLayer)
+        except:
+            QgsMapLayerRegistry.instance().addMapLayer(self.dataLayer)
 
     # check for valid geometry
     def check_valid_geom(self, value):
@@ -507,6 +533,6 @@ class loadMongoDBDialog(QtGui.QDialog, FORM_CLASS):
                     self.feature[index_pos] = str(value[str(key[0][0])][str(key[1][0])])
                     index_pos += 1
                 except:
-                    index_pos += 1
+                    index_pos += 1    
             else:
                 pass
