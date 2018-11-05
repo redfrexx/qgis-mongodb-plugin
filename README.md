@@ -1,5 +1,8 @@
 # QGIS MongoDB Loader
 
+This version was modified to work on QGIS3. If there are issues pleae tell me, I did not test everything.
+I also tried to keep the plugin compatible with QGIS2 but I did not test it at all. It is best to use the original plugin for QGIS2 available here <https://github.com/adrianaksan/qgis-mongodb-plugin>
+
 #### Installation
 
 Use the QGIS Plugins menu to install the MongoDB plugin.
