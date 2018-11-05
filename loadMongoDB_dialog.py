@@ -27,7 +27,7 @@ import qgis.utils
 from qgis.gui import QgsMessageBar
 
 try:
-    from qgis.core import QgsGeometry, QgsPoint, QgsPointXY, QgsVectorLayer, QgsFeature, QgsField, QgsProject, QgsVectorFileWriter
+    from qgis.core import QgsGeometry, QgsPoint, QgsPointXY, QgsVectorLayer, QgsFeature, QgsField, QgsProject, QgsVectorFileWriter, Qgis
 except:
     from qgis.core import QgsGeometry, QgsPoint, QgsVectorLayer, QgsFeature, QgsField, QgsMapLayerRegistry, QgsVectorFileWriter
 
@@ -160,7 +160,7 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
         try:
             # establish a link to the mongoDB server
             self.client = MongoClient(str(server_name))
-        except Exception, e:
+        except Exception as e:
             QMessageBox.about(self, "Warning!", "Please select a server to connect to." + e.message)
             return
 
@@ -359,7 +359,7 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
                                                         value[self.geom_name]["coordinates"][y][1]))
                         except:
 
-                            qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Linestring on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
+                            qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Linestring on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=Qgis.critical)
 
                     self.populate_attributes(value)
                     self.feature.setGeometry(QgsGeometry.fromPolyline(line_string))
@@ -487,8 +487,8 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
 
     # check for valid geometry
     def check_valid_geom(self, value):
-        if value.has_key(self.geom_name):
-            if value[self.geom_name].has_key("coordinates"):
+        if self.geom_name in value:
+            if "coordinates" in value[self.geom_name]:
                 if len(value[self.geom_name]["coordinates"]) != 0:
                     return True
             return False
