@@ -24,7 +24,7 @@ import os.path
 # Import the code for the dialog
 from .loadMongoDB_dialog import loadMongoDBDialog
 
-# test requirements
+# test requirement
 try:
     import json
 
@@ -187,7 +187,7 @@ class loadMongoDB:
         if geom not in self.user_details["geom"]:
             self.user_details["geom"].append(geom)
 
-        json.dump(self.user_details, open(str(os.path.abspath(__file__ + "/../../")) + "/qgis-mongodb-loader/cache.txt",'w'))
+        json.dump(self.user_details, open(str(os.path.abspath(__file__ + "/../../")) + "/qgis-mongodb-plugin/cache.txt",'w'))
 
 
     # attempt a connection to the server when the user presses "CONNECT"

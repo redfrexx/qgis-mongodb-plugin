@@ -22,7 +22,7 @@ except:
 
 
 from .ui_loadMongoDB_dialog_base import Ui_loadMongoDBDialogBase
-
+import shapely
 import qgis.utils
 from qgis.gui import QgsMessageBar
 
@@ -375,40 +375,19 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
             # this deals with Polygon geometry
             elif value[self.geom_name]["type"] == "Polygon":
 
-                # store the polygon points
-                poly_shape = []
-                # store the line (a poly has multiple lines)
-                line_string = []
-
                 # checks the geometry and only imports valid geometry
                 if self.check_valid_geom(value):
-
-                    for y in range(len(value[self.geom_name]["coordinates"][0])):
-
-                        try:
-                            line_string.append(QgsPoint(value[self.geom_name]["coordinates"][0][y][0],
-                                                        value[self.geom_name]["coordinates"][0][y][1]))
-                        except:
-
-                            qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Polygon {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
-                            
-                    poly_shape.append(line_string);
 
                     self.populate_attributes(value)
 
                     try:
-                        ps = QgsGeometry.fromPolygonXY(poly_shape)
+                        geom = shapely.geometry.shape(value[self.geom_name])
+                        ps = QgsGeometry.fromWkt(geom.wkt)
                         self.feature.setGeometry(ps)
                     except AttributeError:
-                        ps = QgsGeometry.fromPolygon(poly_shape)
-                        self.feature.setGeometry(ps)
-                    except:
-
                         qgis.utils.iface.messageBar().pushMessage("Error", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
-                    
+
                     (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
-                    del line_string[:]
-                    del poly_shape[:]
 
                     # update the progress bar
                     self.event_progress()
@@ -436,9 +415,9 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
                             for xy in shape:
 
                                 try:
-                                    each_shape.append(QgsPoint(xy[0], xy[1]))
+                                    each_shape.append(QgsPointXY(xy[0], xy[1]))
                                 except:
-                                    qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Multipolygon {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
+                                    qgis.utils.iface.messageBar().pushCritical("Error", "Error loading Multipolygon {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])))
 
 
                         multi_poly_shape.append(each_shape)
@@ -455,7 +434,7 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
                         self.feature.setGeometry(ps)
 
                     except:
-                        qgis.utils.iface.messageBar().pushMessage("Error", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
+                        qgis.utils.iface.messageBar().pushCritical("Error", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])))
 
                     (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
 
@@ -468,7 +447,7 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
                     self.ui.listCol.setEnabled(False)
             else:
 
-                qgis.utils.iface.messageBar().pushMessage("Error", "Failed to load geometry due to {} being unsupported".format(value[self.geom_name]["type"]), level=QgsMessageBar.CRITICAL)
+                qgis.utils.iface.messageBar().pushCritical("Error", "Failed to load geometry due to {} being unsupported".format(value[self.geom_name]["type"]))
                     
             self.ui.listCol.setEnabled(True)
 
