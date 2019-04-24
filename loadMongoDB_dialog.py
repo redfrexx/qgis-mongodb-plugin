@@ -22,9 +22,8 @@ except:
 
 
 from .ui_loadMongoDB_dialog_base import Ui_loadMongoDBDialogBase
-import shapely
+import shapely.geometry
 import qgis.utils
-from qgis.gui import QgsMessageBar
 
 try:
     from qgis.core import QgsGeometry, QgsPoint, QgsPointXY, QgsVectorLayer, QgsFeature, QgsField, QgsProject, QgsVectorFileWriter, Qgis
@@ -320,136 +319,30 @@ class loadMongoDBDialog(QDialog, FORM_CLASS):
         
         for value in self.ourList:
             # print value[self.geom_name]["type"]
-            
-            # if the user has selected a collection with point geometry
-            if value[self.geom_name]["type"] == "Point":
 
-                x_coord = value[self.geom_name]["coordinates"][0]
-                y_coord = value[self.geom_name]["coordinates"][1]
+            if not self.geom_name in value.keys():
+                continue
 
-                self.populate_attributes(value)
+            try:
+                geom = shapely.geometry.shape(value[self.geom_name])
+                ps = QgsGeometry.fromWkt(geom.wkt)
+                self.feature.setGeometry(ps)
+            except AttributeError:
+                qgis.utils.iface.messageBar().pushCritical("Error", "Error on {}: {}".format(str(value["_id"]), str(
+                    sys.exc_info()[0])))
 
-                try:
-                    self.feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x_coord, y_coord)))
-                except:
-                    self.feature.setGeometry(QgsGeometry.fromPoint(QgsPoint(x_coord, y_coord)))
+            (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
+            if res == False:
+                qgis.utils.iface.messageBar().pushWarning("Warning", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])))
 
-                (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
+            # update the progress bar
+            self.event_progress()
 
-                # update the progress bar
-                self.event_progress()
+            self.ui.load_collection.setEnabled(False)
+            self.ui.listCol.setEnabled(False)
 
-                self.ui.load_collection.setEnabled(False)
-                self.ui.listCol.setEnabled(False)
-
-            elif value[self.geom_name]["type"] == "LineString":
-
-                # used to store a list of poly lines
-                line_string = []
-
-                # checks the geometry and only imports valid geometry
-                if self.check_valid_geom(value):
-
-                    for y in range(len(value[self.geom_name]["coordinates"])):
-
-                        # do not use unless needed, in case there is a multiLineString Object in the DB
-
-                        try:
-                            line_string.append(QgsPoint(value[self.geom_name]["coordinates"][y][0],
-                                                        value[self.geom_name]["coordinates"][y][1]))
-                        except:
-
-                            qgis.utils.iface.messageBar().pushMessage("Error", "Error loading Linestring on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=Qgis.critical)
-
-                    self.populate_attributes(value)
-                    self.feature.setGeometry(QgsGeometry.fromPolyline(line_string))
-                    (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
-                    del line_string[:]
-
-                    # update the progress bar
-                    self.event_progress()
-
-                self.ui.load_collection.setEnabled(False)
-                self.ui.listCol.setEnabled(False)
-
-            # this deals with Polygon geometry
-            elif value[self.geom_name]["type"] == "Polygon":
-
-                # checks the geometry and only imports valid geometry
-                if self.check_valid_geom(value):
-
-                    self.populate_attributes(value)
-
-                    try:
-                        geom = shapely.geometry.shape(value[self.geom_name])
-                        ps = QgsGeometry.fromWkt(geom.wkt)
-                        self.feature.setGeometry(ps)
-                    except AttributeError:
-                        qgis.utils.iface.messageBar().pushMessage("Error", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])), level=QgsMessageBar.CRITICAL)
-
-                    (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
-
-                    # update the progress bar
-                    self.event_progress()
-
-                    self.ui.load_collection.setEnabled(False)
-                    self.ui.listCol.setEnabled(False)
-
-            # this deals with Polygon geometry
-            elif value[self.geom_name]["type"] == "MultiPolygon":
-
-                # store the polygon points
-                poly_shape = []
-
-                # checks the geometry and only imports valid geometry
-                if self.check_valid_geom(value):
-
-                    multi_poly_shape = []
-
-                    for multi_shape in value[self.geom_name]["coordinates"]:
-
-                        for shape in multi_shape:
-
-                            each_shape = []
-
-                            for xy in shape:
-
-                                try:
-                                    each_shape.append(QgsPointXY(xy[0], xy[1]))
-                                except:
-                                    qgis.utils.iface.messageBar().pushCritical("Error", "Error loading Multipolygon {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])))
-
-
-                        multi_poly_shape.append(each_shape)
-
-                    # final append at highest level
-                    poly_shape.append(multi_poly_shape)
-
-                    self.populate_attributes(value)
-                    try:
-                        ps = QgsGeometry.fromMultiPolygonXY(poly_shape)
-                        self.feature.setGeometry(ps)
-                    except AttributeError:
-                        ps = QgsGeometry.fromMultiPolygon(poly_shape)
-                        self.feature.setGeometry(ps)
-
-                    except:
-                        qgis.utils.iface.messageBar().pushCritical("Error", "Error on {}: {}".format(str(value["_id"]), str(sys.exc_info()[0])))
-
-                    (res, outFeats) = self.dataLayer.dataProvider().addFeatures([self.feature])
-
-                    del poly_shape[:]
-
-                    # update the progress bar
-                    self.event_progress()
-
-                    self.ui.load_collection.setEnabled(False)
-                    self.ui.listCol.setEnabled(False)
-            else:
-
-                qgis.utils.iface.messageBar().pushCritical("Error", "Failed to load geometry due to {} being unsupported".format(value[self.geom_name]["type"]))
-                    
-            self.ui.listCol.setEnabled(True)
+            #else:
+            #qgis.utils.iface.messageBar().pushCritical("Error", "Failed to load geometry due to {} being unsupported".format(value[self.geom_name]["type"]))
 
         # commits the changes made to the layer and adds the layer to the map
         self.dataLayer.commitChanges()
